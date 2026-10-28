@@ -1,0 +1,7 @@
+odometry:
+  ros__parameters:
+    encoder_cpr: 1320.0
+    wheel_radius: 0.0325
+    wheel_base: 0.215
+    odom_frame: "odom"
+    base_frame: "base_link"

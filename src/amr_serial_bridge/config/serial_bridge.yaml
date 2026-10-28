@@ -1,0 +1,15 @@
+# File cấu hình cho Serial Bridge có thể thay đổi các tham số trong quá trình chạy. 
+# Các tham số này được khai báo trong file YAML và có thể được truy cập thông qua ROS2 Parameters.
+
+serial_bridge:
+  ros__parameters:
+
+    port: "/dev/serial0"
+    baudrate: 115200
+
+    max_linear: 0.10
+    max_angular: 0.5
+
+    cmd_timeout: 0.5
+    update_period: 0.05  
+
