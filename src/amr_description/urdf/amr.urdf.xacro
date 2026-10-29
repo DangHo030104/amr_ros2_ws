@@ -1,54 +1,161 @@
 <?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="amr">
-  <!-- Kich thuoc banh xe lay tu firmware STM32. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="amr_robot">
+  <!--
+    Mô hình hình học và cây TF của robot AMR, sử dụng với ROS 2 Humble.
+
+    Quy ước hệ trục:
+      +X: hướng về phía trước, nơi đặt bánh caster trước.
+      +Y: hướng sang bên trái của robot.
+      +Z: hướng thẳntrên.
+
+    base_link nằm giữa tâm hai bánh chủ động và cao 0.0325 m so với mặt đất.
+    Tất cả kích thước trong file này đều sử dụng đơn vị mét.
+    Các joint đang để kiểu fixed vì mô hình hiện dùng để kiểm tra TF và RViz.
+
+    Các phần đang được mô hình hóa đơn giản:
+      - Ba tầng của robot là các tấm tròn đồng tâm, đường kính 0.180 m.
+      - Khoảng cách giữa mặt trên của hai tầng liền nhau là 0.065 m.
+      - Hai bánh caster được biểu diễn bằng hình cầu tại vị trí gần đúng.
+      - Vỏ LiDAR A1M8 được biểu diễn bằng một hình trụ đơn giản.
+  -->
+
+  <!-- Kích thước hai bánh chủ động và vị trí trục bánh. -->
   <xacro:property name="wheel_radius" value="0.0325"/>
-  <xacro:property name="wheel_base" value="0.215"/>
-  <xacro:property name="wheel_width" value="0.026"/>
+  <xacro:property name="wheel_width" value="0.027"/>
+  <xacro:property name="wheel_separation" value="0.215"/>
+  <xacro:property name="axle_height" value="0.0325"/>   # 
 
-  <!-- Kich thuoc khung va vi tri LiDAR can do lai tren robot that. -->
-  <xacro:property name="body_length" value="0.335"/>
-  <xacro:property name="body_width" value="0.265"/>
-  <xacro:property name="body_height" value="0.080"/>
+  <!-- Kích thước các tấm khung tròn. -->
+  <xacro:property name="plate_thickness" value="0.003"/>
 
-  <material name="gray"><color rgba="0.35 0.35 0.35 1"/></material>
-  <material name="black"><color rgba="0.05 0.05 0.05 1"/></material>
+  <!-- Kích thước và vị trí hai bánh caster theo trục X. -->
+  <xacro:property name="caster_radius" value="0.0125"/>
+  <xacro:property name="front_caster_x" value="0.065"/>
+  <xacro:property name="rear_caster_x" value="-0.065"/>
+  <xacro:property name="caster_y" value="0.0"/>
 
-  <link name="base_link">
+  <!-- Vị trí frame laser được tính từ base_link đến mặt phẳng quét LiDAR. -->
+  <xacro:property name="laser_x" value="0.0"/>
+  <xacro:property name="laser_y" value="0.0"/>
+  <xacro:property name="laser_z" value="0.200"/>
+
+  <!-- Kích thước gần đúng của vỏ LiDAR A1M8. -->
+  <xacro:property name="lidar_radius" value="0.030"/>
+  <xacro:property name="lidar_height" value="0.035"/>
+
+  <!-- Kích thước bao ngoài đã đo của toàn bộ robot. -->
+  <xacro:property name="overall_height" value="0.250"/>
+  <!--
+    Chiều dài đã đo là 0.180 m và chiều rộng đã đo là 0.240 m.
+    Theo kích thước hai bánh, chiều rộng tính được là 0.242 m.
+    Sai lệch 0.002 m có thể đến từ sai số khi đo thực tế.
+  -->
+  <xacro:property name="overall_length" value="0.180"/>
+  <xacro:property name="overall_width_measured" value="0.240"/>
+
+  <!-- Ba tấm khung được giả sử có cùng đường kính 0.180 m và cùng tâm. -->
+  <xacro:property name="plate_diameter" value="0.180"/>
+
+  <!-- Độ cao mặt trên của từng tấm so với mặt đất: 67, 132 và 197 mm. -->
+  <xacro:property name="plate1_top" value="0.067"/>
+  <xacro:property name="plate2_top" value="0.132"/>
+  <xacro:property name="plate3_top" value="0.197"/>
+
+  <!-- Màu dùng để hiển thị các bộ phận của robot trong RViz. -->
+  <material name="dark_rubber"><color rgba="0.10 0.10 0.11 1"/></material>
+  <material name="lower_brown"><color rgba="0.48 0.32 0.18 1"/></material>
+  <material name="acrylic"><color rgba="0.65 0.85 0.96 0.45"/></material>
+  <material name="caster_white"><color rgba="0.92 0.92 0.92 1"/></material>
+  <material name="lidar_black"><color rgba="0.08 0.08 0.08 1"/></material>
+
+  <!-- Link gốc của robot, đặt tại trung điểm giữa hai bánh chủ động. -->
+  <link name="base_link"/>
+
+  <!-- Macro tạo một tấm khung tròn và gắn cố định tấm đó vào base_link. -->
+  <xacro:macro name="make_plate" params="name top_height material_name">
+    <link name="${name}">
+      <visual>
+        <geometry>
+          <cylinder radius="${plate_diameter/2.0}" length="${plate_thickness}"/>
+        </geometry>
+        <material name="${material_name}"/>
+      </visual>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${name}"/>
+      <origin xyz="0 0 ${top_height-plate_thickness/2.0-axle_height}" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+  <xacro:make_plate name="lower_plate" top_height="${plate1_top}" material_name="lower_brown"/>
+  <xacro:make_plate name="middle_plate" top_height="${plate2_top}" material_name="acrylic"/>
+  <xacro:make_plate name="upper_plate" top_height="${plate3_top}" material_name="acrylic"/>
+
+  <!-- Macro tạo một bánh chủ động ở bên trái hoặc bên phải robot. -->
+  <xacro:macro name="make_drive_wheel" params="name y_position">
+    <link name="${name}">
+      <visual>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="dark_rubber"/>
+      </visual>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${name}"/>
+      <!-- Xoay trục Z của hình trụ sang trục Y của robot để bánh đứng đúng hướng. -->
+      <origin xyz="0 ${y_position} 0" rpy="${pi/2.0} 0 0"/>
+    </joint>
+  </xacro:macro>
+  <xacro:make_drive_wheel name="left_wheel" y_position="${wheel_separation/2.0}"/>
+  <xacro:make_drive_wheel name="right_wheel" y_position="${-wheel_separation/2.0}"/>
+
+  <!-- Bánh caster trước, được mô hình hóa đơn giản bằng hình cầu. -->
+  <link name="front_caster_link">
     <visual>
-      <origin xyz="0 0 ${body_height / 2}"/>
-      <geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry>
-      <material name="gray"/>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+      <material name="caster_white"/>
     </visual>
   </link>
-
-  <joint name="left_wheel_joint" type="fixed">
+  <joint name="front_caster_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="left_wheel"/>
-    <origin xyz="0 ${wheel_base / 2} 0" rpy="1.5708 0 0"/>
+    <child link="front_caster_link"/>
+    <!-- Tâm hình cầu cao hơn mặt đất đúng bằng bán kính caster. -->
+    <origin xyz="${front_caster_x} ${caster_y} ${caster_radius-axle_height}" rpy="0 0 0"/>
   </joint>
-  <link name="left_wheel">
+
+  <!-- Bánh caster sau, đặt đối xứng với caster trước qua tâm robot. -->
+  <link name="rear_caster_link">
     <visual>
-      <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
-      <material name="black"/>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+      <material name="caster_white"/>
     </visual>
   </link>
-
-  <joint name="right_wheel_joint" type="fixed">
+  <joint name="rear_caster_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="right_wheel"/>
-    <origin xyz="0 ${-wheel_base / 2} 0" rpy="1.5708 0 0"/>
+    <child link="rear_caster_link"/>
+    <!-- Tâm hình cầu cao hơn mặt đất đúng bằng bán kính caster. -->
+    <origin xyz="${rear_caster_x} ${caster_y} ${caster_radius-axle_height}" rpy="0 0 0"/>
   </joint>
-  <link name="right_wheel">
+
+  <!--
+    Frame laser nằm tại mặt phẳng quét của LiDAR.
+    Với cấu hình hiện tại, mặt phẳng quét cao 232.5 mm so với mặt đất.
+  -->
+  <link name="laser">
     <visual>
-      <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
-      <material name="black"/>
+      <!-- Đặt phần thân LiDAR nằm bên dưới mặt phẳng quét. -->
+      <origin xyz="0 0 ${-lidar_height/2.0}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+      <material name="lidar_black"/>
     </visual>
   </link>
-
   <joint name="laser_joint" type="fixed">
     <parent link="base_link"/>
-    <child link="laser_frame"/>
-    <origin xyz="-0.10 0 0.175" rpy="0 0 3.14159"/>
+    <child link="laser"/>
+    <origin xyz="${laser_x} ${laser_y} ${laser_z}" rpy="0 0 0"/>
   </joint>
-  <link name="laser_frame"/>
 </robot>
