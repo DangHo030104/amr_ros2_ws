@@ -3,27 +3,29 @@
 import math
 
 import rclpy
-from geometry_msgs.msg import TransformStamped
-from nav_msgs.msg import Odometry
+from geometry_msgs.msg import TransformStamped      # msg mô tả quan hệ tọa độ giữa 2 frame
+from nav_msgs.msg import Odometry                   # msg chứa vị trí, hướng và vận tốc robot trong hệ tọa độ odom
 from rclpy.node import Node
 from std_msgs.msg import Int32MultiArray
-from tf2_ros import TransformBroadcaster
+from tf2_ros import TransformBroadcaster            # Phát các phép biến đổi hệ tọa độ TF
 
-
+ 
 INT32_MIN = -2147483648
 INT32_MAX = 2147483647
 INT32_RANGE = 4294967296
 
 
+# Tính số xung encoder giữa hai lần nhận
 def encoder_difference(current_count, previous_count):
-    difference = current_count - previous_count
+    delta = current_count - previous_count
 
-    if difference > INT32_MAX:
-        difference -= INT32_RANGE
-    elif difference < INT32_MIN:
-        difference += INT32_RANGE
+    # Xử lý tràn số 32-bit
+    if delta > INT32_MAX:
+        delta -= INT32_RANGE
+    elif delta < INT32_MIN:
+        delta += INT32_RANGE
 
-    return difference
+    return delta
 
 
 class OdometryNode(Node):
@@ -45,78 +47,101 @@ class OdometryNode(Node):
         if self.encoder_cpr <= 0 or self.wheel_radius <= 0 or self.wheel_base <= 0:
             raise ValueError('Robot dimensions and encoder CPR must be positive')
 
+        # Khởi tạo trạng thái của robot
         self.x = 0.0
         self.y = 0.0
-        self.yaw = 0.0
+        self.thelta = 0.0                  
+
+        # Lưu số xung và thời điểm nhận dữ liệu trước đó
         self.last_left_count = None
         self.last_right_count = None
         self.last_time = None
 
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
         self.tf_broadcaster = TransformBroadcaster(self)
-        self.encoder_sub = self.create_subscription(
-            Int32MultiArray, 'serial/encoder', self.encoder_callback, 10)
+        self.encoder_sub = self.create_subscription(Int32MultiArray, 'serial/encoder', self.encoder_callback, 10)
 
     def encoder_callback(self, msg):
         if len(msg.data) != 2:
             self.get_logger().warning('Encoder message must contain two values')
             return
 
-        now = self.get_clock().now()
+        now = self.get_clock().now()    # Lấy tg theo clock của Node ROS 2
         left_count = int(msg.data[0])
         right_count = int(msg.data[1])
 
+        # Lần đầu nhận dữ liệu encoder
         if self.last_time is None:
             self.last_left_count = left_count
             self.last_right_count = right_count
             self.last_time = now
             return
 
-        dt = (now - self.last_time).nanoseconds / 1e9
+        dt = (now - self.last_time).nanoseconds / 1e9   # Đổi ns sang s
         if dt <= 0.0:
             return
 
-        left_ticks = encoder_difference(left_count, self.last_left_count)
-        right_ticks = encoder_difference(right_count, self.last_right_count)
-
+        # Tính số xung encoder giữa 2 lần nhận
+        delta_left = encoder_difference(left_count, self.last_left_count)
+        delta_right = encoder_difference(right_count, self.last_right_count)
+   
         self.last_left_count = left_count
         self.last_right_count = right_count
         self.last_time = now
 
-        meters_per_tick = 2.0 * math.pi * self.wheel_radius / self.encoder_cpr
-        left_distance = left_ticks * meters_per_tick
-        right_distance = right_ticks * meters_per_tick
-        center_distance = (left_distance + right_distance) / 2.0
-        delta_yaw = (right_distance - left_distance) / self.wheel_base
+        # Chuyển số xung encoder thành quãng đường 
+        meters_per_tick = 2.0 * math.pi * self.wheel_radius / self.encoder_cpr  
 
-        middle_yaw = self.yaw + delta_yaw / 2.0
-        self.x += center_distance * math.cos(middle_yaw)
-        self.y += center_distance * math.sin(middle_yaw)
-        self.yaw += delta_yaw
+        # Tính toán odometry của robot 2 bánh (Differential drive)
+        # 1. Tính quãng đường đi được của mỗi bánh xe 
+        ds_left = delta_left * meters_per_tick
+        ds_right = delta_right * meters_per_tick
 
-        half_yaw = self.yaw / 2.0
-        quaternion_z = math.sin(half_yaw)
-        quaternion_w = math.cos(half_yaw)
+        # 2. Tính quãng đường đi được trung bình và góc quay của robot
+        ds = (ds_left + ds_right) / 2.0
+        dtheta = (ds_right - ds_left) / self.wheel_base
 
-        odom = Odometry()
-        odom.header.stamp = now.to_msg()
-        odom.header.frame_id = self.odom_frame
-        odom.child_frame_id = self.base_frame
+        # 3. Cập nhật vị trí và hướng của robot (x,y,theta)
+        theta_mid = self.thelta + dtheta / 2.0
+
+        self.x += ds * math.cos(theta_mid)
+        self.y += ds * math.sin(theta_mid)
+        self.thelta += dtheta
+
+        # Chuyển góc θ sang Quaternion
+        # Vì robot đang di chuyển trong mp2D, chỉ xét góc quay quanh trục Z (yaw)
+        q_z = math.sin(self.thelta / 2.0)
+        q_w = math.cos(self.thelta / 2.0)
+
+        # Cập nhật thông tin header và frame_id
+        odom = Odometry()                           
+        odom.header.stamp = now.to_msg()            # Thời điểm tính odometry
+        odom.header.frame_id = self.odom_frame      # Hệ toạ độ gốc của robot dùng để tham chiếu
+        odom.child_frame_id = self.base_frame       # Hệ toạ độ gắn với thân robot (đặt tại tâm robot)
+
+        # Gán vị trí, hướng và vận tốc vào msg Odometry
         odom.pose.pose.position.x = self.x
         odom.pose.pose.position.y = self.y
-        odom.pose.pose.orientation.z = quaternion_z
-        odom.pose.pose.orientation.w = quaternion_w
-        odom.twist.twist.linear.x = center_distance / dt
-        odom.twist.twist.angular.z = delta_yaw / dt
+
+        odom.pose.pose.orientation.z = q_z
+        odom.pose.pose.orientation.w = q_w
+
+        odom.twist.twist.linear.x = ds / dt
+        odom.twist.twist.angular.z = dtheta / dt
+        
         self.odom_pub.publish(odom)
 
-        transform = TransformStamped()
-        transform.header = odom.header
-        transform.child_frame_id = self.base_frame
-        transform.transform.translation.x = self.x
-        transform.transform.translation.y = self.y
-        transform.transform.rotation = odom.pose.pose.orientation
-        self.tf_broadcaster.sendTransform(transform)
+        # Publish TF: odom -> base_link 
+        tf = TransformStamped()
+        tf.header = odom.header                                 # Sử dụng cùng header với msg Odometry
+        tf.child_frame_id = self.base_frame
+
+        tf.transform.translation.x = self.x
+        tf.transform.translation.y = self.y
+
+        tf.transform.rotation = odom.pose.pose.orientation      # Sử dụng cùng orientation với msg Odometry
+        
+        self.tf_broadcaster.sendTransform(tf)
 
 
 def main(args=None):

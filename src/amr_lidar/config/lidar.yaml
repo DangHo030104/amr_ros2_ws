@@ -1,0 +1,10 @@
+# Sử dụng driver "sllidar_ros2"
+
+sllidar_node:
+  ros__parameters:
+    channel_type: serial
+    serial_port: /dev/ttyUSB0
+    serial_baudrate: 115200
+    frame_id: laser
+    inverted: false
+    angle_compensate: true
