@@ -13,6 +13,8 @@ def generate_launch_description():
         'urdf',
         'amr.urdf.xacro'
     )
+
+    # Process the xacro file to generate the robot description
     robot_description = ParameterValue(
         Command(['xacro ', xacro_file]),
         value_type=str
@@ -23,6 +25,6 @@ def generate_launch_description():
             package='robot_state_publisher',
             executable='robot_state_publisher',
             output='screen',
-            parameters=[{'robot_description': robot_description}]
+            parameters=[{'robot_description': robot_description}]   # Pass the robot description to the node
         )
     ])

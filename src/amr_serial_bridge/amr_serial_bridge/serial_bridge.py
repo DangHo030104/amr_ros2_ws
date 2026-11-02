@@ -19,8 +19,8 @@ class SerialBridge(Node):
         # Khai báo ROS2 Parametes: Cac tham so co the thay doi trong file YAML.
         self.declare_parameter('port', '/dev/serial0')
         self.declare_parameter('baudrate', 115200)
-        self.declare_parameter('max_linear', 0.10)
-        self.declare_parameter('max_angular', 0.50)
+        self.declare_parameter('max_linear', 0.20)
+        self.declare_parameter('max_angular', 0.80)
         self.declare_parameter('cmd_timeout', 0.5)
         self.declare_parameter('update_period', 0.05)
 

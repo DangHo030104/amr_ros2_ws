@@ -7,8 +7,8 @@ serial_bridge:
     port: "/dev/serial0"
     baudrate: 115200
 
-    max_linear: 0.10
-    max_angular: 0.5
+    max_linear: 0.20
+    max_angular: 0.80
 
     cmd_timeout: 0.5
     update_period: 0.05  

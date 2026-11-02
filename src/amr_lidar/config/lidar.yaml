@@ -6,5 +6,5 @@ sllidar_node:
     serial_port: /dev/ttyUSB0
     serial_baudrate: 115200
     frame_id: laser
-    inverted: false
+    inverted: false   # True: đảo ngược hướng quét của lidar
     angle_compensate: true

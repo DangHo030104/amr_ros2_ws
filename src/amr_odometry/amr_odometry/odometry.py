@@ -106,10 +106,11 @@ class OdometryNode(Node):
 
         self.x += ds * math.cos(theta_mid)
         self.y += ds * math.sin(theta_mid)
+        
         self.thelta += dtheta
 
         # Chuyển góc θ sang Quaternion
-        # Vì robot đang di chuyển trong mp2D, chỉ xét góc quay quanh trục Z (yaw)
+        # Vì robot đang di chuyển trong MP 2D, chỉ xét góc quay quanh trục Z (yaw)
         q_z = math.sin(self.thelta / 2.0)
         q_w = math.cos(self.thelta / 2.0)
 

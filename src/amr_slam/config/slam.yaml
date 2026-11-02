@@ -60,8 +60,8 @@ slam_toolbox:
     # Điều kiện thêm dữ liệu vào Pose Graph: 
     # 2 ngưỡng minimum_travel_distance và minimum_travel_heading xác định khi nào robot đã di chuyển đủ 
     # để xem xét thêm dữ liệu quét vào quá trình Mapping.
-    minimum_travel_distance: 0.20     # m
-    minimum_travel_heading: 0.20      # rad
+    minimum_travel_distance: 0.50     # m   // 0.5m
+    minimum_travel_heading: 0.50      # rad // 0.5 rad
 
     scan_buffer_size: 10
     scan_buffer_maximum_scan_distance: 10.0

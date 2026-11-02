@@ -20,9 +20,6 @@ def generate_launch_description():
             executable='sllidar_node',
             name='sllidar_node',
             output='screen',
-            parameters=[config],
-            remappings=[
-                ('scan', '/scan')
-            ]
+            parameters=[config]
         )
     ])

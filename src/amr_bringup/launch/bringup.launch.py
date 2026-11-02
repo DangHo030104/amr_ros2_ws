@@ -1,8 +1,11 @@
+# Khởi động toàn bộ hệ thống AMR (Autonomous Mobile Robot) ROS 2 
+# bằng cách include các file launch từ các packages khác nhau.
+
 import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription     
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 
@@ -12,7 +15,7 @@ def include_launch(package_name, launch_file):
         'launch',
         launch_file
     )
-    return IncludeLaunchDescription(PythonLaunchDescriptionSource(path))
+    return IncludeLaunchDescription(PythonLaunchDescriptionSource(path))    
 
 
 def generate_launch_description():
