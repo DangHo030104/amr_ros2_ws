@@ -3,9 +3,10 @@
 import math
 
 import rclpy
-from geometry_msgs.msg import TransformStamped      # msg mô tả quan hệ tọa độ giữa 2 frame
+from geometry_msgs.msg import TransformStamped      # msg mô tả quan hệ tọa độ TF giữa 2 frame
 from nav_msgs.msg import Odometry                   # msg chứa vị trí, hướng và vận tốc robot trong hệ tọa độ odom
 from rclpy.node import Node
+from sensor_msgs.msg import JointState              # msg chứa thông tin góc quay của các joint (bánh xe) để robot_state_publisher cập nhật TF
 from std_msgs.msg import Int32MultiArray
 from tf2_ros import TransformBroadcaster            # Phát các phép biến đổi hệ tọa độ TF
 
@@ -57,16 +58,29 @@ class OdometryNode(Node):
         self.last_right_count = None
         self.last_time = None
 
+        # Góc quay tích lũy của hai bánh (radian)
+        self.left_wheel_position = 0.0
+        self.right_wheel_position = 0.0
+
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
+        self.joint_state_pub = self.create_publisher(JointState, 'joint_states', 10)
         self.tf_broadcaster = TransformBroadcaster(self)
         self.encoder_sub = self.create_subscription(Int32MultiArray, 'serial/encoder', self.encoder_callback, 10)
+
+    # Gửi góc quay hai bánh để robot_state_publisher cập nhật TF của bánh xe
+    def publish_joint_states(self, stamp):
+        joint_state = JointState()
+        joint_state.header.stamp = stamp.to_msg()
+        joint_state.name = ['left_wheel_joint', 'right_wheel_joint']                    # Tên joint khớp với Xacro
+        joint_state.position = [self.left_wheel_position, self.right_wheel_position]
+        self.joint_state_pub.publish(joint_state)
 
     def encoder_callback(self, msg):
         if len(msg.data) != 2:
             self.get_logger().warning('Encoder message must contain two values')
             return
 
-        now = self.get_clock().now()    # Lấy tg theo clock của Node ROS 2
+        now = self.get_clock().now()    # Lấy tg hiện tại theo clock của Node ROS 2
         left_count = int(msg.data[0])
         right_count = int(msg.data[1])
 
@@ -75,6 +89,7 @@ class OdometryNode(Node):
             self.last_left_count = left_count
             self.last_right_count = right_count
             self.last_time = now
+            self.publish_joint_states(now)
             return
 
         dt = (now - self.last_time).nanoseconds / 1e9   # Đổi ns sang s
@@ -91,6 +106,12 @@ class OdometryNode(Node):
 
         # Chuyển số xung encoder thành quãng đường 
         meters_per_tick = 2.0 * math.pi * self.wheel_radius / self.encoder_cpr  
+
+        # Cập nhật góc quay của bánh xe từ số xung encoder
+        radians_per_tick = 2.0 * math.pi / self.encoder_cpr
+        self.left_wheel_position += delta_left * radians_per_tick
+        self.right_wheel_position += delta_right * radians_per_tick
+        self.publish_joint_states(now)
 
         # Tính toán odometry của robot 2 bánh (Differential drive)
         # 1. Tính quãng đường đi được của mỗi bánh xe 

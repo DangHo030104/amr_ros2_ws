@@ -6,11 +6,11 @@
     Quy ước hệ trục:
       +X: hướng về phía trước, nơi đặt bánh caster trước.
       +Y: hướng sang bên trái của robot.
-      +Z: hướng thẳntrên.
+      +Z: hướng thẳng lên trên.
 
-    base_link nằm giữa tâm hai bánh chủ động và cao 0.0325 m so với mặt đất.
+    base_link nằm giữa tâm hai bánh chủ động và cao 0.0325m so với mặt đất.
     Tất cả kích thước trong file này đều sử dụng đơn vị mét.
-    Các joint đang để kiểu fixed vì mô hình hiện dùng để kiểm tra TF và RViz.
+    Hai joint bánh chủ động dùng kiểu continuous; các joint còn lại dùng kiểu fixed.
 
     Các phần đang được mô hình hóa đơn giản:
       - Ba tầng của robot là các tấm tròn đồng tâm, đường kính 0.180 m.
@@ -18,6 +18,7 @@
       - Hai bánh caster được biểu diễn bằng hình cầu tại vị trí gần đúng.
       - Vỏ LiDAR A1M8 được biểu diễn bằng một hình trụ đơn giản.
   -->
+
 
   <!-- Kích thước hai bánh chủ động và vị trí trục bánh. -->
   <xacro:property name="wheel_radius" value="0.0325"/>
@@ -61,6 +62,7 @@
   <xacro:property name="plate2_top" value="0.132"/>
   <xacro:property name="plate3_top" value="0.197"/>
 
+
   <!-- Màu dùng để hiển thị các bộ phận của robot trong RViz. -->
   <material name="dark_rubber"><color rgba="0.10 0.10 0.11 1"/></material>
   <material name="lower_brown"><color rgba="0.48 0.32 0.18 1"/></material>
@@ -68,8 +70,10 @@
   <material name="caster_white"><color rgba="0.92 0.92 0.92 1"/></material>
   <material name="lidar_black"><color rgba="0.08 0.08 0.08 1"/></material>
 
+
   <!-- Link gốc của robot, đặt tại trung điểm giữa hai bánh chủ động. -->
   <link name="base_link"/>
+
 
   <!-- Macro tạo một tấm khung tròn và gắn cố định tấm đó vào base_link. -->
   <xacro:macro name="make_plate" params="name top_height material_name">
@@ -91,6 +95,7 @@
   <xacro:make_plate name="middle_plate" top_height="${plate2_top}" material_name="acrylic"/>
   <xacro:make_plate name="upper_plate" top_height="${plate3_top}" material_name="acrylic"/>
 
+
   <!-- Macro tạo một bánh chủ động ở bên trái hoặc bên phải robot. -->
   <xacro:macro name="make_drive_wheel" params="name y_position">
     <link name="${name}">
@@ -101,15 +106,18 @@
         <material name="dark_rubber"/>
       </visual>
     </link>
-    <joint name="${name}_joint" type="fixed">
+    <joint name="${name}_joint" type="continuous">
       <parent link="base_link"/>
       <child link="${name}"/>
       <!-- Xoay trục Z của hình trụ sang trục Y của robot để bánh đứng đúng hướng. -->
       <origin xyz="0 ${y_position} 0" rpy="${pi/2.0} 0 0"/>
+      <!-- Bánh quay quanh trục Z cục bộ, tương ứng với trục Y của robot. -->
+      <axis xyz="0 0 1"/>
     </joint>
   </xacro:macro>
   <xacro:make_drive_wheel name="left_wheel" y_position="${wheel_separation/2.0}"/>
   <xacro:make_drive_wheel name="right_wheel" y_position="${-wheel_separation/2.0}"/>
+
 
   <!-- Bánh caster trước, được mô hình hóa đơn giản bằng hình cầu. -->
   <link name="front_caster_link">
@@ -138,6 +146,7 @@
     <!-- Tâm hình cầu cao hơn mặt đất đúng bằng bán kính caster. -->
     <origin xyz="${rear_caster_x} ${caster_y} ${caster_radius-axle_height}" rpy="0 0 0"/>
   </joint>
+
 
   <!--
     Frame laser nằm tại mặt phẳng quét của LiDAR.
