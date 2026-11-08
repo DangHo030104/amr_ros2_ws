@@ -30,6 +30,11 @@ def generate_launch_description():
             'map',
             description='Đường dẫn tuyệt đối tới file YAML của bản đồ đã lưu'
         ),
+        DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='false',
+            description='Dùng clock mô phỏng khi chạy với Gazebo'
+        ),
 
         # Nạp launch file chuẩn của Nav2, truyền các tham số cần thiết.
         IncludeLaunchDescription(
@@ -37,7 +42,7 @@ def generate_launch_description():
             launch_arguments={
                 'map': LaunchConfiguration('map'),
                 'params_file': params_file,         # Nạp cấu hình nav2.yaml 
-                'use_sim_time': 'false',
+                'use_sim_time': LaunchConfiguration('use_sim_time'),
                 'autostart': 'true',                # Auto khởi chạy các node Nav2 (Lifecycle Node) khi launch
                 'slam': 'false',                    # Không chạy SLAM Toolbox, dùng Localization
                 'use_composition': 'true',          # Chạy các node Nav2 trong component container (giảm tải CPU)

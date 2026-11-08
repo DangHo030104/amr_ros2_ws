@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="amr_robot">
+  <xacro:arg name="use_gazebo" default="false"/>
   <!--
     Mô hình hình học và cây TF của robot AMR, sử dụng với ROS 2 Humble.
 
@@ -57,6 +58,36 @@
   <!-- Ba tấm khung được giả sử có cùng đường kính 0.180 m và cùng tâm. -->
   <xacro:property name="plate_diameter" value="0.180"/>
 
+  <!-- Tham số khối lượng chỉ phục vụ mô phỏng động lực học trong Gazebo. -->
+  <xacro:property name="plate_mass" value="0.45"/>
+  <xacro:property name="wheel_mass" value="0.08"/>
+  <xacro:property name="caster_mass" value="0.02"/>
+  <xacro:property name="lidar_mass" value="0.15"/>
+
+  <xacro:macro name="cylinder_inertial" params="mass radius length">
+    <inertial>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${mass * (3.0 * radius * radius + length * length) / 12.0}"
+        ixy="0.0" ixz="0.0"
+        iyy="${mass * (3.0 * radius * radius + length * length) / 12.0}"
+        iyz="0.0"
+        izz="${mass * radius * radius / 2.0}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="sphere_inertial" params="mass radius">
+    <inertial>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="${2.0 * mass * radius * radius / 5.0}"
+        ixy="0.0" ixz="0.0"
+        iyy="${2.0 * mass * radius * radius / 5.0}"
+        iyz="0.0"
+        izz="${2.0 * mass * radius * radius / 5.0}"/>
+    </inertial>
+  </xacro:macro>
+
   <!-- Độ cao mặt trên của từng tấm so với mặt đất: 67, 132 và 197 mm. -->
   <xacro:property name="plate1_top" value="0.067"/>
   <xacro:property name="plate2_top" value="0.132"/>
@@ -84,6 +115,12 @@
         </geometry>
         <material name="${material_name}"/>
       </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="${plate_diameter/2.0}" length="${plate_thickness}"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial mass="${plate_mass}" radius="${plate_diameter/2.0}" length="${plate_thickness}"/>
     </link>
     <joint name="${name}_joint" type="fixed">
       <parent link="base_link"/>
@@ -105,6 +142,12 @@
         </geometry>
         <material name="dark_rubber"/>
       </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial mass="${wheel_mass}" radius="${wheel_radius}" length="${wheel_width}"/>
     </link>
     <joint name="${name}_joint" type="continuous">
       <parent link="base_link"/>
@@ -125,6 +168,10 @@
       <geometry><sphere radius="${caster_radius}"/></geometry>
       <material name="caster_white"/>
     </visual>
+    <collision>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+    </collision>
+    <xacro:sphere_inertial mass="${caster_mass}" radius="${caster_radius}"/>
   </link>
   <joint name="front_caster_joint" type="fixed">
     <parent link="base_link"/>
@@ -139,6 +186,10 @@
       <geometry><sphere radius="${caster_radius}"/></geometry>
       <material name="caster_white"/>
     </visual>
+    <collision>
+      <geometry><sphere radius="${caster_radius}"/></geometry>
+    </collision>
+    <xacro:sphere_inertial mass="${caster_mass}" radius="${caster_radius}"/>
   </link>
   <joint name="rear_caster_joint" type="fixed">
     <parent link="base_link"/>
@@ -161,10 +212,103 @@
       </geometry>
       <material name="lidar_black"/>
     </visual>
+    <collision>
+      <origin xyz="0 0 ${-lidar_height/2.0}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+    </collision>
+    <xacro:cylinder_inertial mass="${lidar_mass}" radius="${lidar_radius}" length="${lidar_height}"/>
   </link>
   <joint name="laser_joint" type="fixed">
     <parent link="base_link"/>
     <child link="laser"/>
     <origin xyz="${laser_x} ${laser_y} ${laser_z}" rpy="0 0 0"/>
   </joint>
+
+  <!-- Các plugin chỉ được nạp khi amr_simulation gọi xacro với use_gazebo:=true. -->
+  <xacro:if value="$(arg use_gazebo)">
+    <gazebo reference="left_wheel">
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+    </gazebo>
+    <gazebo reference="right_wheel">
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+    </gazebo>
+    <gazebo reference="front_caster_link">
+      <mu1>0.01</mu1>
+      <mu2>0.01</mu2>
+    </gazebo>
+    <gazebo reference="rear_caster_link">
+      <mu1>0.01</mu1>
+      <mu2>0.01</mu2>
+    </gazebo>
+
+    <gazebo>
+      <plugin name="amr_diff_drive" filename="libgazebo_ros_diff_drive.so">
+        <ros>
+          <namespace>/</namespace>
+        </ros>
+        <update_rate>20.0</update_rate>
+        <left_joint>left_wheel_joint</left_joint>
+        <right_joint>right_wheel_joint</right_joint>
+        <wheel_separation>${wheel_separation}</wheel_separation>
+        <wheel_diameter>${2.0 * wheel_radius}</wheel_diameter>
+        <max_wheel_torque>2.0</max_wheel_torque>
+        <max_wheel_acceleration>1.0</max_wheel_acceleration>
+        <!-- 0 = odometry tích phân từ chuyển động bánh xe, gần với robot thật hơn ground truth. -->
+        <odometry_source>0</odometry_source>
+        <odometry_frame>odom</odometry_frame>
+        <robot_base_frame>base_link</robot_base_frame>
+        <publish_odom>true</publish_odom>
+        <publish_odom_tf>true</publish_odom_tf>
+        <publish_wheel_tf>false</publish_wheel_tf>
+      </plugin>
+
+      <plugin name="amr_joint_state_publisher" filename="libgazebo_ros_joint_state_publisher.so">
+        <ros>
+          <namespace>/</namespace>
+        </ros>
+        <update_rate>20.0</update_rate>
+        <joint_name>left_wheel_joint</joint_name>
+        <joint_name>right_wheel_joint</joint_name>
+      </plugin>
+    </gazebo>
+
+    <gazebo reference="laser">
+      <sensor name="amr_lidar" type="ray">
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+        <update_rate>10.0</update_rate>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>360</samples>
+              <resolution>1</resolution>
+              <min_angle>-${pi}</min_angle>
+              <max_angle>${pi}</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.15</min>
+            <max>8.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </ray>
+        <plugin name="amr_lidar_plugin" filename="libgazebo_ros_ray_sensor.so">
+          <ros>
+            <remapping>~/out:=scan</remapping>
+          </ros>
+          <output_type>sensor_msgs/LaserScan</output_type>
+          <frame_name>laser</frame_name>
+        </plugin>
+      </sensor>
+    </gazebo>
+  </xacro:if>
 </robot>

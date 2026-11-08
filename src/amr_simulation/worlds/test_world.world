@@ -1,0 +1,67 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="amr_test_world">
+    <physics name="default_physics" type="ode">
+      <real_time_update_rate>1000.0</real_time_update_rate>
+      <max_step_size>0.001</max_step_size>
+    </physics>
+
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <model name="wall_north">
+      <static>true</static>
+      <pose>0 3 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>6 0.1 1</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>6 0.1 1</size></box></geometry></visual>
+      </link>
+    </model>
+    <model name="wall_south">
+      <static>true</static>
+      <pose>0 -3 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>6 0.1 1</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>6 0.1 1</size></box></geometry></visual>
+      </link>
+    </model>
+    <model name="wall_east">
+      <static>true</static>
+      <pose>3 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.1 6 1</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.1 6 1</size></box></geometry></visual>
+      </link>
+    </model>
+    <model name="wall_west">
+      <static>true</static>
+      <pose>-3 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.1 6 1</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.1 6 1</size></box></geometry></visual>
+      </link>
+    </model>
+
+    <model name="obstacle_box">
+      <static>true</static>
+      <pose>1.2 0.8 0.25 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.6 0.6 0.5</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.6 0.6 0.5</size></box></geometry></visual>
+      </link>
+    </model>
+
+    <model name="obstacle_cylinder">
+      <static>true</static>
+      <pose>-1.2 -0.8 0.35 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><cylinder><radius>0.3</radius><length>0.7</length></cylinder></geometry></collision>
+        <visual name="visual"><geometry><cylinder><radius>0.3</radius><length>0.7</length></cylinder></geometry></visual>
+      </link>
+    </model>
+  </world>
+</sdf>
