@@ -23,7 +23,7 @@ def generate_launch_description():
             package='amr_serial_bridge',
             executable='serial_bridge.py',
             name='serial_bridge',
-            output='screen',                    # Cho phép hiển thị log của node trên màn hình terminal
+            output='screen',                    # Cho phép hiển thị log trên terminal
             parameters=[config]                 # Nạp các tham số cấu hình từ file serial_bridge.yaml vào Node
         )
     ])

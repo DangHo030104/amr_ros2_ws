@@ -7,9 +7,15 @@ import serial   # Package PySerial để RPi4 giao tiếp với STM32 qua UART
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from sensor_msgs.msg import Imu
 from std_msgs.msg import Int32MultiArray
 
 from serial_protocol import encode_command, parse_frame
+
+
+# Hệ số chuyển đổi dữ liệu IMU từ raw sang SI (m/s^2 và rad/s)
+ACCEL_RAW_TO_MPS2 = 9.80665 / 16384.0
+GYRO_RAW_TO_RADPS = math.pi / (180.0 * 131.0)
 
 
 class SerialBridge(Node):
@@ -22,7 +28,9 @@ class SerialBridge(Node):
         self.declare_parameter('max_linear', 0.20)
         self.declare_parameter('max_angular', 0.80)
         self.declare_parameter('cmd_timeout', 0.5)
-        self.declare_parameter('update_period', 0.05)
+        self.declare_parameter('update_period', 0.02)
+        self.declare_parameter('imu_frame', 'imu_link')
+        self.declare_parameter('imu_angular_velocity_variance', 0.01)
 
         self.port = self.get_parameter('port').value
         self.baudrate = self.get_parameter('baudrate').value
@@ -30,12 +38,18 @@ class SerialBridge(Node):
         self.max_angular = self.get_parameter('max_angular').value
         self.cmd_timeout = self.get_parameter('cmd_timeout').value
         self.update_period = self.get_parameter('update_period').value
+        self.imu_frame = self.get_parameter('imu_frame').value
+        self.imu_angular_velocity_variance = float(self.get_parameter('imu_angular_velocity_variance').value)
 
         # raise ValueError(...): Python phát sinh ngoại lệ và dừng quá trình khởi tạo Node.
         if self.update_period <= 0 or self.cmd_timeout <= 0:
             raise ValueError('Timeout and update period must be positive')
         if self.max_linear <= 0 or self.max_angular <= 0:
             raise ValueError('Speed limits must be positive')
+        if not isinstance(self.imu_frame, str) or not self.imu_frame:
+            raise ValueError('IMU frame must not be empty')
+        if self.imu_angular_velocity_variance <= 0:
+            raise ValueError('IMU angular velocity variance must be positive')
 
         # Khởi tạo các biến quản lý trạng thái
         self.serial_conn = None             # Object kết nối UART
@@ -49,6 +63,7 @@ class SerialBridge(Node):
         self.stop_sent = True               
 
         self.encoder_pub = self.create_publisher(Int32MultiArray, 'serial/encoder', 10)
+        self.imu_pub = self.create_publisher(Imu, 'imu/data_raw', 10)
         self.cmd_sub = self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback, 10)
 
         self.open_serial()
@@ -130,15 +145,39 @@ class SerialBridge(Node):
     def write_command(self, v, w):
         return self.write_payload(encode_command(v, w))
 
-    # Xử lý dữ liệu encoder
+    # Xử lý dữ liệu nhận từ UART
     def process_frame(self, raw):
         frame = parse_frame(raw)
         if frame is None:
             return
 
-        msg = Int32MultiArray()     # Tạo ROS2 message Int32MultiArray để gửi dữ liệu encoder
-        msg.data = [frame['left'], frame['right']]
-        self.encoder_pub.publish(msg)
+        if frame['type'] == 'ENC':
+            msg = Int32MultiArray()
+            msg.data = [frame['left'], frame['right']]
+            self.encoder_pub.publish(msg)
+            return
+
+        if frame['type'] == 'IMU':
+            msg = Imu()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = self.imu_frame
+
+            # MPU6050 không có orientation, bỏ qua trường orientation
+            msg.orientation_covariance[0] = -1.0
+
+            msg.angular_velocity_covariance[0] = self.imu_angular_velocity_variance
+            msg.angular_velocity_covariance[4] = self.imu_angular_velocity_variance
+            msg.angular_velocity_covariance[8] = self.imu_angular_velocity_variance
+
+            msg.linear_acceleration.x = frame['accel'][0] * ACCEL_RAW_TO_MPS2
+            msg.linear_acceleration.y = frame['accel'][1] * ACCEL_RAW_TO_MPS2
+            msg.linear_acceleration.z = frame['accel'][2] * ACCEL_RAW_TO_MPS2
+
+            msg.angular_velocity.x = frame['gyro'][0] * GYRO_RAW_TO_RADPS
+            msg.angular_velocity.y = frame['gyro'][1] * GYRO_RAW_TO_RADPS
+            msg.angular_velocity.z = frame['gyro'][2] * GYRO_RAW_TO_RADPS
+
+            self.imu_pub.publish(msg)
 
     # Đọc dữ liệu từ UART
     def read_serial(self):
@@ -146,8 +185,8 @@ class SerialBridge(Node):
             return
 
         try:
-            # Gioi han du lieu xu ly trong mot chu ky timer.
-            for _ in range(4):  # 4 * 0.05s = 0.2s max per timer callback
+            # Gioi han so chunk UART xu ly trong mot chu ky timer.
+            for _ in range(4):
                 waiting = self.serial_conn.in_waiting       # Kiểm tra số byte đang chờ
                 if waiting <= 0:
                     break

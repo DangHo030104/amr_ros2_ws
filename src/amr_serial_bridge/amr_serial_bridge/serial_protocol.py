@@ -36,6 +36,27 @@ def parse_frame(raw):
             "right": right
         }
 
+    # parts = ["IMU", "Timestamp", "a_x", "a_y", "a_z", "g_x", "g_y", "g_z"]
+    if parts[0] == "IMU" and len(parts) == 8:
+        try:
+            time_ms = int(parts[1])
+            # values=[a_x, a_y, a_z, g_x, g_y, g_z]
+            values = [int(value) for value in parts[2:]]
+        except ValueError:
+            return None
+
+        if not 0 <= time_ms <= 2**32 - 1:
+            return None
+        if not all(-(2**15) <= value <= 2**15 - 1 for value in values):
+            return None
+
+        return {
+            "type": "IMU",
+            "time_ms": time_ms,
+            "accel": values[:3],
+            "gyro": values[3:]
+        }
+
     return None
 
 # RPi 4 -> STM32

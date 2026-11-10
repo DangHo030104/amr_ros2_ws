@@ -11,5 +11,9 @@ serial_bridge:
     max_angular: 0.80
 
     cmd_timeout: 0.5
-    update_period: 0.05  
+    update_period: 0.02
+
+    imu_frame: "imu_link"
+    # Initial conservative value in (rad/s)^2; tune from stationary rosbag data.
+    imu_angular_velocity_variance: 0.01
 

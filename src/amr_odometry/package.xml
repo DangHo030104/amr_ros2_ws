@@ -2,7 +2,7 @@
 <package format="3">
   <name>amr_odometry</name>
   <version>0.1.0</version>
-  <description>Encoder odometry and odom to base_link TF for the AMR.</description>
+  <description>Encoder odometry and IMU fusion for the AMR.</description>
   <maintainer email="black@todo.todo">black</maintainer>
   <license>Apache-2.0</license>
 
@@ -11,9 +11,8 @@
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

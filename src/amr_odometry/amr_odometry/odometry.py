@@ -3,12 +3,10 @@
 import math
 
 import rclpy
-from geometry_msgs.msg import TransformStamped      # msg mô tả quan hệ tọa độ TF giữa 2 frame
 from nav_msgs.msg import Odometry                   # msg chứa vị trí, hướng và vận tốc robot trong hệ tọa độ odom
 from rclpy.node import Node
 from sensor_msgs.msg import JointState              # msg chứa thông tin góc quay của các joint (bánh xe) để robot_state_publisher cập nhật TF
 from std_msgs.msg import Int32MultiArray
-from tf2_ros import TransformBroadcaster            # Phát các phép biến đổi hệ tọa độ TF
 
  
 INT32_MIN = -2147483648
@@ -38,15 +36,25 @@ class OdometryNode(Node):
         self.declare_parameter('wheel_base', 0.215)
         self.declare_parameter('odom_frame', 'odom')
         self.declare_parameter('base_frame', 'base_link')
+        self.declare_parameter('odom_topic', 'wheel/odom')
+        self.declare_parameter('linear_velocity_variance', 0.04)
+        self.declare_parameter('angular_velocity_variance', 0.64)
 
         self.encoder_cpr = float(self.get_parameter('encoder_cpr').value)
         self.wheel_radius = float(self.get_parameter('wheel_radius').value)
         self.wheel_base = float(self.get_parameter('wheel_base').value)
         self.odom_frame = self.get_parameter('odom_frame').value
         self.base_frame = self.get_parameter('base_frame').value
+        self.odom_topic = self.get_parameter('odom_topic').value
+        self.linear_velocity_variance = float(self.get_parameter('linear_velocity_variance').value)
+        self.angular_velocity_variance = float(self.get_parameter('angular_velocity_variance').value)
 
         if self.encoder_cpr <= 0 or self.wheel_radius <= 0 or self.wheel_base <= 0:
             raise ValueError('Robot dimensions and encoder CPR must be positive')
+        if not isinstance(self.odom_topic, str) or not self.odom_topic:
+            raise ValueError('Odometry topic must not be empty')
+        if self.linear_velocity_variance <= 0 or self.angular_velocity_variance <= 0:
+            raise ValueError('Odometry variances must be positive')
 
         # Khởi tạo trạng thái của robot
         self.x = 0.0
@@ -62,9 +70,8 @@ class OdometryNode(Node):
         self.left_wheel_position = 0.0
         self.right_wheel_position = 0.0
 
-        self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
+        self.odom_pub = self.create_publisher(Odometry, self.odom_topic, 10)
         self.joint_state_pub = self.create_publisher(JointState, 'joint_states', 10)
-        self.tf_broadcaster = TransformBroadcaster(self)
         self.encoder_sub = self.create_subscription(Int32MultiArray, 'serial/encoder', self.encoder_callback, 10)
 
     # Gửi góc quay hai bánh để robot_state_publisher cập nhật TF của bánh xe
@@ -125,7 +132,7 @@ class OdometryNode(Node):
         # 3. Cập nhật vị trí và hướng của robot (x,y,theta)
         theta_mid = self.thelta + dtheta / 2.0
 
-        self.x += ds * math.cos(theta_mid)
+        self.x += ds * math.cos(theta_mid)          # Tích phân rời rạc
         self.y += ds * math.sin(theta_mid)
         
         self.thelta += dtheta
@@ -150,20 +157,10 @@ class OdometryNode(Node):
 
         odom.twist.twist.linear.x = ds / dt
         odom.twist.twist.angular.z = dtheta / dt
-        
+        odom.twist.covariance[0] = self.linear_velocity_variance        # Độ tin cậy vx
+        odom.twist.covariance[35] = self.angular_velocity_variance      # Độ tin cậy vyaw
+
         self.odom_pub.publish(odom)
-
-        # Publish TF: odom -> base_link 
-        tf = TransformStamped()
-        tf.header = odom.header                                 # Sử dụng cùng header với msg Odometry
-        tf.child_frame_id = self.base_frame
-
-        tf.transform.translation.x = self.x
-        tf.transform.translation.y = self.y
-
-        tf.transform.rotation = odom.pose.pose.orientation      # Sử dụng cùng orientation với msg Odometry
-        
-        self.tf_broadcaster.sendTransform(tf)
 
 
 def main(args=None):

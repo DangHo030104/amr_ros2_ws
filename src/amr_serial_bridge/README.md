@@ -1,6 +1,8 @@
 # AMR serial bridge
 
-This ROS 2 node connects `/cmd_vel` to STM32 USART1 at 115200 baud. It sends `ARM\n` before the first velocity command, sends `CMD,v,w\n` every 50 ms while `/cmd_vel` is fresh, and publishes STM32 `ENC,left,right\n` frames on `/serial/encoder` as `std_msgs/Int32MultiArray`.
+This ROS 2 node connects `/cmd_vel` to STM32 USART1 at 115200 baud. It sends `ARM\n` before the first velocity command, sends `CMD,v,w\n` every 20 ms while `/cmd_vel` is fresh, and publishes STM32 `ENC,left,right\n` frames on `/serial/encoder` as `std_msgs/Int32MultiArray`.
+
+MPU6050 frames use `IMU,time_ms,ax,ay,az,gx,gy,gz\n`. The bridge converts the configured raw ranges (accelerometer +/-2 g and gyro +/-250 deg/s) to SI units and publishes `sensor_msgs/Imu` on `/imu/data_raw`. Orientation is marked unavailable; the message timestamp is ROS receive time because the STM32 millisecond counter is not synchronized to the ROS clock.
 
 When `/cmd_vel` is older than `cmd_timeout` (default 500 ms), the node sends `DISARM\n`. If the link or node fails, the STM32 watchdog stops the motors after 500 ms without a valid command. The bridge reconnects to the serial port every two seconds after a connection failure.
 

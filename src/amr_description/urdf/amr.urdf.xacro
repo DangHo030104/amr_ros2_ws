@@ -41,6 +41,11 @@
   <xacro:property name="laser_y" value="0.0"/>
   <xacro:property name="laser_z" value="0.200"/>
 
+  <!-- MPU6050 position relative to base_link; IMU and robot axes are aligned. -->
+  <xacro:property name="imu_x" value="0.0"/>
+  <xacro:property name="imu_y" value="0.0"/>
+  <xacro:property name="imu_z" value="0.050"/>
+
   <!-- Kích thước gần đúng của vỏ LiDAR A1M8. -->
   <xacro:property name="lidar_radius" value="0.030"/>
   <xacro:property name="lidar_height" value="0.035"/>
@@ -224,6 +229,14 @@
     <parent link="base_link"/>
     <child link="laser"/>
     <origin xyz="${laser_x} ${laser_y} ${laser_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- MPU6050 axes: +X forward, +Y left, +Z up -->
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="${imu_x} ${imu_y} ${imu_z}" rpy="0 0 0"/>
   </joint>
 
   <!-- Các plugin chỉ được nạp khi amr_simulation gọi xacro với use_gazebo:=true. -->

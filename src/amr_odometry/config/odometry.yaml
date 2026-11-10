@@ -5,3 +5,8 @@ odometry:
     wheel_base: 0.215
     odom_frame: "odom"
     base_frame: "base_link"
+    odom_topic: "wheel/odom"
+
+    # Initial conservative values; tune from rosbag measurements.
+    linear_velocity_variance: 0.04   # (m/s)^2
+    angular_velocity_variance: 0.64  # (rad/s)^2

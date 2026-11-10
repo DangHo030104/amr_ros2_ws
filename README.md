@@ -13,8 +13,11 @@ STM32. Các thông số cơ khí đang dùng chung với firmware:
 
 `/cmd_vel` -> serial bridge -> STM32 -> motor
 
-`STM32 encoder` -> `/serial/encoder` -> odometry -> `/odom` và TF
-`odom -> base_link`
+`STM32 encoder` -> `/serial/encoder` -> wheel odometry -> `/wheel/odom`
+
+`STM32 MPU6050` -> `/imu/data_raw`
+
+`/wheel/odom` + gyro Z từ `/imu/data_raw` -> EKF -> `/odom` và TF `odom -> base_link`
 
 LiDAR xuất `/scan`. `robot_state_publisher` xuất TF cố định
 `base_link -> laser`. SLAM Toolbox tạo TF `map -> odom`.
@@ -116,6 +119,8 @@ Trước khi khởi động Nav2, kiểm tra các dữ liệu đầu vào quan t
 
 ```bash
 ros2 topic hz /scan
+ros2 topic hz /imu/data_raw
+ros2 topic hz /wheel/odom
 ros2 topic hz /odom
 ros2 topic echo /serial/encoder
 ros2 topic echo /joint_states
@@ -228,7 +233,7 @@ trực tiếp.
 
 Hệ thống Nav2 được xem là hoạt động đúng khi:
 
-- `/scan`, `/odom`, `/serial/encoder` và `/joint_states` có dữ liệu.
+- `/scan`, `/imu/data_raw`, `/wheel/odom`, `/odom`, `/serial/encoder` và `/joint_states` có dữ liệu.
 - TF `odom -> base_link` tồn tại.
 - Sau khi đặt initial pose, TF `map -> odom` tồn tại.
 - Map hiển thị và LaserScan khớp tương đối với tường trong RViz.
