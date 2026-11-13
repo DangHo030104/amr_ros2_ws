@@ -44,9 +44,9 @@ def generate_launch_description():
                 'params_file': params_file,         # Nạp cấu hình nav2.yaml 
                 'use_sim_time': LaunchConfiguration('use_sim_time'),
                 'autostart': 'true',                # Auto khởi chạy các node Nav2 (Lifecycle Node) khi launch
-                'slam': 'false',                    # Không chạy SLAM Toolbox, dùng Localization
-                'use_composition': 'true',          # Chạy các node Nav2 trong component container (giảm tải CPU)
-                'use_respawn': 'false'              # Không tự khởi động lại tiến trình Nav2 khi lỗi
+                'slam': 'False',                    # PythonExpression của Nav2 Humble cần True/False
+                'use_composition': 'True',          # Chạy các node Nav2 trong component container (giảm tải CPU)
+                'use_respawn': 'False'              # Không tự khởi động lại tiến trình Nav2 khi lỗi
             }.items()
         )
     ])
